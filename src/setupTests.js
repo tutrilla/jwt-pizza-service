@@ -5,6 +5,7 @@ beforeAll(async () => {
   // Ensure admin user exists
   try {
     await DB.getUser('a@jwt.com');
+    // eslint-disable-next-line no-unused-vars
   } catch (error) {
     // Admin doesn't exist, create it
     await DB.addUser({

@@ -15,7 +15,7 @@ export default defineConfig([
   },
   // Add Jest globals for test files
   {
-    files: ["**/*.test.js", "**/*.spec.js"],
+    files: ["**/*.test.js", "**/*.spec.js", "**/setupTests.js"],
     languageOptions: {
       globals: {
         ...globals.jest,
