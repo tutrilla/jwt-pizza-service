@@ -7,11 +7,6 @@ let testUserId;
 
 const adminUser = { email: 'a@jwt.com', password: 'admin' };
 let adminAuthToken;
-let adminUserId;
-
-const otherUser = { name: 'other user', email: 'other@test.com', password: 'password' };
-let otherUserAuthToken;
-let otherUserId;
 
 beforeAll(async () => {
   testUser.email = Math.random().toString(36).substring(2, 12) + '@test.com';
@@ -22,7 +17,6 @@ beforeAll(async () => {
 
   const adminLoginRes = await request(app).put('/api/auth').send(adminUser);
   adminAuthToken = adminLoginRes.body.token;
-  adminUserId = adminLoginRes.body.user.id;
   expectValidJwt(adminAuthToken);
 });
 
