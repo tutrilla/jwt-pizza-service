@@ -99,6 +99,61 @@ test('update user - without auth', async () => {
   expect(updateRes.status).toBe(401);
 });
 
+test('list users unauthorized', async () => {
+  const listUsersRes = await request(app).get('/api/user');
+  expect(listUsersRes.status).toBe(401);
+});
+
+test('list users', async () => {
+  // eslint-disable-next-line no-unused-vars
+  const [user, userToken] = await registerUser(request(app));
+  const listUsersRes = await request(app)
+    .get('/api/user')
+    .set('Authorization', 'Bearer ' + userToken);
+    expect(listUsersRes.status).toBe(403);
+});
+
+test('list users - admin', async () => {
+  const listUsersRes = await request(app)
+    .get('/api/user')
+    .set('Authorization', 'Bearer ' + adminAuthToken);
+    expect(listUsersRes.status).toBe(200);
+});
+
+test('delete user', async () => {
+  const [userToDelete] = await registerUser(request(app));
+  const delRes = await request(app)
+    .delete(`/api/user/${userToDelete.id}`)
+    .set('Authorization', `Bearer ${adminAuthToken}`);
+
+  expect(delRes.status).toBe(200);
+  expect(delRes.body).toEqual({});
+
+  const listRes = await request(app)
+    .get('/api/user?page=0&limit=10&name=pizza')
+    .set('Authorization', `Bearer ${adminAuthToken}`);
+
+  expect(listRes.status).toBe(200);
+  const emails = listRes.body.users.map(u => u.email);
+  expect(emails).not.toContain(userToDelete.email);
+});
+
+async function registerUser(service) {
+  const testUser = {
+    name: 'pizza diner',
+    email: `${randomName()}@test.com`,
+    password: 'a',
+  };
+  const registerRes = await service.post('/api/auth').send(testUser);
+  registerRes.body.user.password = testUser.password;
+
+  return [registerRes.body.user, registerRes.body.token];
+}
+
+function randomName() {
+  return Math.random().toString(36).substring(2, 12);
+}
+
 function expectValidJwt(potentialJwt) {
   expect(potentialJwt).toMatch(/^[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*$/);
 }
