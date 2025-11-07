@@ -71,7 +71,7 @@ authRouter.post(
       const auth = await setAuth(user);
       authMetrics.incrementSuccess();
       res.json({ user: user, token: auth });
-    } catch (error) {
+    } catch {
       authMetrics.incrementFailed();
       return res.status(409).json({ message: 'registration failed' });
     }
@@ -95,7 +95,7 @@ authRouter.put(
       const auth = await setAuth(user);
       authMetrics.incrementSuccess();
       res.json({ user: user, token: auth });
-    } catch (error) {
+    } catch {
       authMetrics.incrementFailed();
       return res.status(401).json({ message: 'invalid credentials' });
     }
