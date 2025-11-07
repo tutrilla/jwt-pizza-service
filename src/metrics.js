@@ -46,9 +46,25 @@ class OtelMetricBuilder {
             'POST': { name: 'http_requests_post', type: 'sum', unit: 'requests' },
             'DELETE': { name: 'http_requests_delete', type: 'sum', unit: 'requests' },
 
+            // User metrics
+            'activeUsers': { name: 'active_users', type: 'gauge', unit: 'users' },
+
+            // Auth metrics
+            'authSuccess': { name: 'auth_attempts_success', type: 'sum', unit: 'attempts' },
+            'authFailed': { name: 'auth_attempts_failed', type: 'sum', unit: 'attempts' },
+
             // System metrics
             'cpuUsage': { name: 'system_cpu_usage', type: 'gauge', unit: 'percent' },
             'memoryUsage': { name: 'system_memory_usage', type: 'gauge', unit: 'percent' },
+
+            // Purchase metrics
+            'pizzasSold': { name: 'pizzas_sold', type: 'sum', unit: 'pizzas '},
+            'pizzaCreationFailures': { name: 'pizza_creation_failures', type: 'sum', unit: 'failures' },
+            'revenue': { name: 'pizza_revenue', type: 'sum', unit: 'millibitcoin' },
+
+            // Latency metrics
+            'serviceLatency': { name: 'service_latency', type: 'gauge', unit: 'milliseconds' },
+            'pizzaCreationLatency': { name: 'pizza_creation_latency', type: 'gauge', unit: 'milliseconds' }
         };
 
         return configs[key] || { name: key, type: 'gauge', unit: 'value' };
@@ -77,16 +93,6 @@ class HttpMetrics {
     getMetrics() {
         return { ...this.requests };
     }
-
-    reset() {
-        this.requests = {
-            total:0,
-            GET: 0,
-            PUT: 0,
-            POST: 0,
-            DELETE: 0
-        };
-    }
 }
 
 class SystemMetrics {
@@ -100,35 +106,123 @@ class SystemMetrics {
 
 class UserMetrics {
     constructor() {
-        this.activeUsers = 0;
+        this.activeUsers = new Map();
+        this.activityWindow = 10 * 60 * 1000;
+    }
+
+    recordUserActivity(userId) {
+        if (userId) {
+            this.activeUsers.set(userId, Date.now());
+        }
     }
 
     getMetrics() {
-        return { activeUsers: this.activeUsers };
+        const now = Date.now();
+        for (const [userId, timestamp] of this.activeUsers.entries()) {
+            if (now - timestamp > this.activityWindow) {
+                this.activeUsers.delete(userId);
+            }
+        }
+
+        // console.log("Number of active users:", this.activeUsers.size);
+
+        return { activeUsers: this.activeUsers.size };
     }
 }
 
 class AuthMetrics {
     constructor() {
+        this.authSuccess = 0;
+        this.authFailed = 0;
+    }
+
+    incrementSuccess() {
+        this.authSuccess++;
+    }
+
+    incrementFailed() {
+        this.authFailed++;
     }
 
     getMetrics() {
-        return;
+        return {
+            authSuccess: this.authSuccess,
+            authFailed: this.authFailed
+        };
     }
 }
 
 class PurchaseMetrics {
     constructor() {
+        this.pizzasSold = 0;
+        this.pizzaCreationFailures = 0;
+        this.revenue = 0;
+    }
 
+    recordSales(pizzaCount, totalPrice) {
+        this.pizzasSold += pizzaCount;
+        this.revenue += (totalPrice * 1000);
+    }
+
+    recordFailure() {
+        this.pizzaCreationFailures++;
     }
 
     getMetrics() {
-        return;
+        return {
+            pizzasSold: this.pizzasSold,
+            pizzaCreationFailures: this.pizzaCreationFailures,
+            revenue: this.revenue
+        };
+    }
+}
+
+class LatencyMetrics {
+    constructor() {
+        this.serviceLatency = [];
+        this.pizzaCreationLatency = [];
+        this.maxSamples = 100;
+    }
+
+    recordServiceLatency(latencyMs) {
+        this.serviceLatency.push(latencyMs);
+
+        if (this.serviceLatency.length > this.maxSamples) {
+            this.serviceLatency.shift();
+        }
+    }
+
+    recordPizzaCreationLatency(latencyMs) {
+        this.pizzaCreationLatency.push(latencyMs);
+
+        if (this.pizzaCreationLatency.length > this.maxSamples) {
+            this.pizzaCreationLatency.shift();
+        }
+    }
+
+    getAverage(array) {
+        if (array.length === 0) {
+            return 0;
+        }
+
+        const sum = array.reduce((acc, val) => acc + val, 0);
+        return Math.round(sum / array.length);
+    }
+
+    getMetrics() {
+        return {
+            serviceLatency: this.getAverage(this.serviceLatency),
+            pizzaCreationLatency: this.getAverage(this.pizzaCreationLatency)
+        }
     }
 }
 
 const httpMetrics = new HttpMetrics();
 const systemMetrics = new SystemMetrics();
+const userMetrics = new UserMetrics();
+const authMetrics = new AuthMetrics();
+const purchaseMetrics = new PurchaseMetrics();
+const latencyMetrics = new LatencyMetrics();
 
 function sendMetricToGrafana(metricName, metricValue, type, unit) {
   const metric = {
@@ -195,9 +289,10 @@ function sendMetricsPeriodically(period) {
       const metrics = new OtelMetricBuilder();
       metrics.add(httpMetrics);
       metrics.add(systemMetrics);
-      // metrics.add(userMetrics);
-      // metrics.add(purchaseMetrics);
-      // metrics.add(authMetrics);
+      metrics.add(userMetrics);
+      metrics.add(purchaseMetrics);
+      metrics.add(authMetrics);
+      metrics.add(latencyMetrics);
 
       metrics.sendToGrafana();
     } catch (error) {
@@ -209,12 +304,30 @@ function sendMetricsPeriodically(period) {
 }
 
 function requestTracker(req, res, next) {
+    const startTime = Date.now();
+
     httpMetrics.incrementRequest(req.method);
+
+    if (req.user && req.user.id) {
+        // console.log(`Recording activity for user: ${req.user.id}`); // Add this
+        userMetrics.recordUserActivity(req.user.id);
+    }
+
+    res.on('finish', () => {
+        const latency = Date.now() - startTime;
+        latencyMetrics.recordServiceLatency(latency);
+    });
+
     next();
 }
 
 function getCpuUsagePercentage() {
-  const cpuUsage = os.loadavg()[0] / os.cpus().length;
+  const cpuUsage = os.loadavg()[0];
+
+//   if (cpuUsage === 0 && process.platform === 'win32') {
+//     return Math.random() * 50 + 25;
+//   }
+
   return cpuUsage.toFixed(2) * 100;
 }
 
@@ -228,5 +341,8 @@ function getMemoryUsagePercentage() {
 
 module.exports = {
     requestTracker,
-    sendMetricsPeriodically
+    sendMetricsPeriodically,
+    authMetrics,
+    purchaseMetrics,
+    latencyMetrics
 }
