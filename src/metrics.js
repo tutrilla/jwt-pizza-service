@@ -275,7 +275,7 @@ function sendMetricToGrafana(metricName, metricValue, type, unit) {
           console.error(`Failed to push metrics data to Grafana: ${text}\n${body}`);
         });
       } else {
-        console.log(`Pushed ${metricName}`);
+        // console.log(`Pushed ${metricName}`);
       }
     })
     .catch((error) => {
@@ -296,7 +296,7 @@ function sendMetricsPeriodically(period) {
 
       metrics.sendToGrafana();
     } catch (error) {
-      console.log('Error sending metrics', error);
+      // console.log('Error sending metrics', error);
     }
   }, period);
 
