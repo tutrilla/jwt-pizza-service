@@ -295,7 +295,7 @@ function sendMetricsPeriodically(period) {
       metrics.add(latencyMetrics);
 
       metrics.sendToGrafana();
-    } catch (error) {
+    } catch {
       // console.log('Error sending metrics', error);
     }
   }, period);
