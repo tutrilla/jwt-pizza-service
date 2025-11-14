@@ -4,6 +4,8 @@ const config = require("../config.js");
 const { StatusCodeError } = require("../endpointHelper.js");
 const { Role } = require("../model/model.js");
 const dbModel = require("./dbModel.js");
+const logger = require("../logger.js");
+
 class DB {
   constructor() {
     this.initialized = this.initializeDatabase();
@@ -464,8 +466,32 @@ class DB {
   }
 
   async query(connection, sql, params) {
-    const [results] = await connection.execute(sql, params);
-    return results;
+    const startTime = Date.now();
+
+    try {
+      const [results] = await connection.execute(sql, params);
+      const duration = Date.now() - startTime;
+
+      logger.log('info', 'database', {
+        query: sql,
+        params: params,
+        duration: `${duration}ms`,
+        rowCount: Array.isArray(results) ? results.length : 1
+      });
+
+      return results;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      logger.log('error', 'database', {
+        query: sql,
+        params: JSON.stringify(params),
+        duration: `${duration}ms`,
+        error: error.message
+      });
+      
+      throw error;
+    }
   }
 
   async getID(connection, key, value, table) {

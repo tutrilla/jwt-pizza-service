@@ -4,6 +4,7 @@ const config = require('../config.js');
 const { asyncHandler } = require('../endpointHelper.js');
 const { DB, Role } = require('../database/database.js');
 const { authMetrics } = require('../metrics.js');
+const logger = require('../logger.js');
 
 const authRouter = express.Router();
 
@@ -63,6 +64,12 @@ authRouter.post(
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
       authMetrics.incrementFailed();
+      logger.log('warn', 'auth', {
+        message: 'Registration failed - missing fields',
+        path: req.originalUrl,
+        method: req.method,
+        statusCode: 400
+      });
       return res.status(400).json({ message: 'name, email, and password are required' });
     }
     
@@ -73,6 +80,12 @@ authRouter.post(
       res.json({ user: user, token: auth });
     } catch {
       authMetrics.incrementFailed();
+      logger.log('warn', 'auth', {
+        message: 'Registration failed - missing fields',
+        path: req.originalUrl,
+        method: req.method,
+        statusCode: 400
+      });
       return res.status(409).json({ message: 'registration failed' });
     }
   })
@@ -89,14 +102,28 @@ authRouter.put(
       
       if (!user) {
         authMetrics.incrementFailed();
+        logger.log('warn', 'auth', {
+          message: 'Login failed - invalid credentials',
+          path: req.originalUrl,
+          method: req.method,
+          email: email,
+          statusCode: 401
+        });
         return res.status(401).json({ message: 'invalid credentials' });
       }
 
       const auth = await setAuth(user);
       authMetrics.incrementSuccess();
       res.json({ user: user, token: auth });
-    } catch {
+    } catch (error) {
       authMetrics.incrementFailed();
+      logger.log('error', 'auth', {
+        message: 'Login failed - exception',
+        error: error.message,
+        path: req.originalUrl,
+        method: req.method,
+        statusCode: 401
+      });
       return res.status(401).json({ message: 'invalid credentials' });
     }
   })
