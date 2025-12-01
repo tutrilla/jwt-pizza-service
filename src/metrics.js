@@ -179,41 +179,23 @@ class PurchaseMetrics {
 
 class LatencyMetrics {
     constructor() {
-        this.serviceLatency = [];
-        this.pizzaCreationLatency = [];
-        this.maxSamples = 100;
+        this.serviceLatency = 0;
+        this.pizzaCreationLatency = 0;
     }
 
     recordServiceLatency(latencyMs) {
-        this.serviceLatency.push(latencyMs);
-
-        if (this.serviceLatency.length > this.maxSamples) {
-            this.serviceLatency.shift();
-        }
+        this.serviceLatency = latencyMs;
     }
 
     recordPizzaCreationLatency(latencyMs) {
-        this.pizzaCreationLatency.push(latencyMs);
-
-        if (this.pizzaCreationLatency.length > this.maxSamples) {
-            this.pizzaCreationLatency.shift();
-        }
-    }
-
-    getAverage(array) {
-        if (array.length === 0) {
-            return 0;
-        }
-
-        const sum = array.reduce((acc, val) => acc + val, 0);
-        return Math.round(sum / array.length);
+        this.pizzaCreationLatency = latencyMs;
     }
 
     getMetrics() {
         return {
-            serviceLatency: this.getAverage(this.serviceLatency),
-            pizzaCreationLatency: this.getAverage(this.pizzaCreationLatency)
-        }
+            serviceLatency: this.serviceLatency,
+            pizzaCreationLatency: this.pizzaCreationLatency,
+        };
     }
 }
 
