@@ -37,9 +37,10 @@ async function setAuthUser(req, res, next) {
   const token = readAuthToken(req);
   if (token) {
     try {
+      const payload = jwt.verify(token, config.jwtSecret);
       if (await DB.isLoggedIn(token)) {
         // Check the database to make sure the token is valid.
-        req.user = jwt.verify(token, config.jwtSecret);
+        req.user = payload;
         req.user.isRole = (role) => !!req.user.roles.find((r) => r.role === role);
       }
     } catch {
@@ -140,7 +141,13 @@ authRouter.delete(
 );
 
 async function setAuth(user) {
-  const token = jwt.sign(user, config.jwtSecret);
+  const payload = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    roles: user.roles
+  };
+  const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1h' });
   await DB.loginUser(user.id, token);
   return token;
 }

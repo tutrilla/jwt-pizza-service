@@ -58,6 +58,7 @@ franchiseRouter.docs = [
 // getFranchises
 franchiseRouter.get(
   '/',
+  authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
     const [franchises, more] = await DB.getFranchises(req.user, req.query.page, req.query.limit, req.query.name);
     res.json({ franchises, more });
@@ -96,8 +97,21 @@ franchiseRouter.post(
 // deleteFranchise
 franchiseRouter.delete(
   '/:franchiseId',
+  authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
     const franchiseId = Number(req.params.franchiseId);
+
+    // Load the franchise so we can check who owns/admins it
+    const franchise = await DB.getFranchise({ id: franchiseId });
+    if (
+      !franchise ||
+      (!req.user.isRole(Role.Admin) &&
+        !franchise.admins.some((admin) => admin.id === req.user.id))
+    ) {
+      // User is not allowed to delete this franchise
+      throw new StatusCodeError('unable to delete a franchise', 403);
+    }
+
     await DB.deleteFranchise(franchiseId);
     res.json({ message: 'franchise deleted' });
   })
