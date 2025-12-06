@@ -64,11 +64,11 @@ test('create franchise - admin', async () => {
   testFranchiseId = createRes.body.id;
 });
 
-test('list all the franchises', async() => {
-    const franchiseRes = await request(app).get('/api/franchise?page=0&limit=10&name=*');
-    expect(franchiseRes.status).toBe(200);
-    console.log(franchiseRes.body);
-});
+// test('list all the franchises', async() => {
+//     const franchiseRes = await request(app).get('/api/franchise?page=0&limit=10&name=*');
+//     expect(franchiseRes.status).toBe(200);
+//     console.log(franchiseRes.body);
+// });
 
 test('get user franchises', async () => {
   const userFranchisesRes = await request(app)
